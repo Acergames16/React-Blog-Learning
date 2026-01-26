@@ -25,7 +25,7 @@ const HomePage = () => {
           </header>
 
           <div className="grid gap-6">
-            {/* Placeholder for blog content */}
+            
             <div className="p-12 border-2 border-dashed border-violet-200 rounded-3xl bg-white flex flex-col items-center">
                <span className="text-4xl mb-4">🏠</span>
                <p className="text-violet-400 font-medium">Share your thoughts with the world.</p>
