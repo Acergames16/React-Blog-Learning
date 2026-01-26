@@ -29,7 +29,7 @@ const CreatePostModal: React.FC<Props> = ({ isOpen, onClose, editingPost }) => {
   // Sync internal state with the post being edited
   useEffect(() => {
     if (editingPost) {
-      setTitle(editingPost.title);
+      setTitle(editingPost?.title);
       setContent(editingPost.content);
       setCategory(editingPost.category || 'General');
     } else {
