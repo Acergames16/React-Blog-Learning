@@ -12,7 +12,7 @@ const LandingPage = () => {
                 <img src={logo} className='w-25 h-25' />
                 <div className='max-w-2xl w-full text-center bg-white px-10 pb-8'>
 
-                    <h1 className='text-3xl font-bold text-gray-900 mb-2'>Welcome to Blog Web</h1> 
+                    <h1 className='text-3xl font-bold text-gray-900 mb-2'>Welcome to Acestylus</h1> 
                     <p className='text-gray-500 mb-8'>Your go-to platform for sharing and discovering amazing blog posts.</p>
 
                     <div className='flex justify-center gap-4'>

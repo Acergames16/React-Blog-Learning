@@ -45,13 +45,21 @@ const PublishPage = () => {
     }
   };
 
-  // 4. The "Publish/Update" Feature
+  // 4. Remove Image Feature
+  const handleRemoveImage = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setImageFile(null);
+    setPreviewUrl('');
+  };
+
+  // 5. The "Publish/Update" Feature
   const handlePublish = async () => {
     if (!user || !title || !content) return;
     setIsPublishing(true);
 
     try {
-      let finalImageUrl = previewUrl; // Default to existing URL if no new file is uploaded
+      let finalImageUrl = previewUrl; // Default to existing URL or empty
 
       // Upload image if a NEW file was selected
       if (imageFile) {
@@ -94,7 +102,7 @@ const PublishPage = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header - Reatined your original look */}
+      {/* Header */}
       <div className="max-w-4xl mx-auto px-6 py-8 flex justify-between items-center">
         <div className="flex items-center gap-4">
           <span className="text-[10px] uppercase tracking-[0.2em] text-gray-300">
@@ -111,28 +119,43 @@ const PublishPage = () => {
         </button>
       </div>
 
-      {/* Writing Canvas - Retained exactly as you had it */}
+      {/* Writing Canvas */}
       <main className="max-w-2xl mx-auto px-6 pt-12 pb-32">
         
         {/* Live Image Upload Area */}
-        <div className="group relative w-full aspect-[21/9] bg-gray-50 mb-16 border border-gray-100 flex items-center justify-center overflow-hidden">
+        <div className="group relative w-full aspect-[21/9] bg-gray-50 mb-16 border border-gray-100 flex items-center justify-center overflow-hidden transition-all">
           {previewUrl ? (
-            <img src={previewUrl} className="w-full h-full object-cover" alt="Preview" />
+            <>
+              <img src={previewUrl} className="w-full h-full object-cover" alt="Preview" />
+              
+              {/* Overlay + Remove Button */}
+              <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-start justify-end p-4">
+                <button
+                  onClick={handleRemoveImage}
+                  className="w-8 h-8 bg-black text-white flex items-center justify-center hover:bg-zinc-800 transition-colors shadow-lg"
+                  title="Remove Image"
+                >
+                  <span className="text-[10px]">✕</span>
+                </button>
+              </div>
+            </>
           ) : (
-            <p className="text-[9px] uppercase tracking-[0.3em] text-gray-400">Add Hero Image</p>
+            <>
+              <p className="text-[9px] uppercase tracking-[0.3em] text-gray-400">Add Hero Image</p>
+              <input 
+                type="file" 
+                accept="image/*"
+                onChange={onFileSelect}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+              />
+            </>
           )}
-          <input 
-            type="file" 
-            accept="image/*"
-            onChange={onFileSelect}
-            className="absolute inset-0 opacity-0 cursor-pointer"
-          />
         </div>
 
         {/* Title Input */}
         <input
           placeholder="Title"
-          className="w-full text-5xl font-light tracking-tight placeholder:text-gray-400 border-b border-gray-200 focus:outline-none mb-12"
+          className="w-full text-5xl font-light tracking-tight placeholder:text-gray-400 border-b border-gray-100 focus:border-gray-300 focus:outline-none mb-12 py-2 transition-colors"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
@@ -140,7 +163,7 @@ const PublishPage = () => {
         {/* Content Area */}
         <textarea
           placeholder="Tell your story..."
-          className="w-full h-[300px] text-lg leading-relaxed font-light placeholder:text-gray-400 border border-gray-200 focus:outline-none resize-none"
+          className="w-full h-[300px] text-lg leading-relaxed font-light placeholder:text-gray-400 border border-gray-100 focus:border-gray-300 focus:outline-none resize-none p-4 transition-colors"
           value={content}
           onChange={(e) => setContent(e.target.value)}
         />

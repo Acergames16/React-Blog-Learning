@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import  supabase  from '../../api/supabase';
+import supabase from '../../api/supabase';
 import { useSelector } from 'react-redux';
-import type{ RootState } from '../../app/store';
+import type { RootState } from '../../app/store';
 
 const CommentsSection = ({ blogId }: { blogId: string }) => {
   const { user } = useSelector((state: RootState) => state.auth);
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  // 1. Define fetch function FIRST so it's available to everything below
+  // 1. Fetch Comments
   const fetchComments = useCallback(async () => {
     const { data, error } = await supabase
       .from('comments')
@@ -23,14 +24,49 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
     }
   }, [blogId]);
 
-  // 2. useEffect calls the function defined above
   useEffect(() => {
     if (blogId) {
       fetchComments();
     }
   }, [blogId, fetchComments]);
 
-  // 3. handleSubmit also calls the function defined above
+  // 2. Image Handling Logic
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setPreviewUrl(null);
+  };
+
+  // 3. Delete Comment Logic
+  const handleDeleteComment = async (commentId: string) => {
+    const confirmDelete = window.confirm("Remove this response?");
+    if (!confirmDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from('comments')
+        .delete()
+        .eq('id', commentId)
+        .eq('user_id', user?.id); // Server-side safety
+
+      if (error) throw error;
+
+      // Optimistic update: remove from UI instantly
+      setComments(prev => prev.filter(c => c.id !== commentId));
+    } catch (err: any) {
+      console.error("Delete Error:", err.message);
+      alert("Could not delete comment.");
+    }
+  };
+
+  // 4. Submit Comment Logic
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !newComment.trim()) return;
@@ -43,7 +79,7 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
         const fileExt = imageFile.name.split('.').pop();
         const fileName = `${Date.now()}.${fileExt}`;
         
-        const { data: uploadData, error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('comment-images')
           .upload(fileName, imageFile);
         
@@ -66,14 +102,14 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
 
       if (insertError) throw insertError;
 
-      // SUCCESS: Reset state and REFRESH list
+      // Reset Form
       setNewComment('');
-      setImageFile(null);
+      handleRemoveImage();
       fetchComments(); 
       
     } catch (err: any) {
       console.error("Comment Error:", err.message);
-      alert("Failed to post comment. Check console for details.");
+      alert("Failed to post comment.");
     } finally {
       setUploading(false);
     }
@@ -87,7 +123,7 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
 
       {/* Form Area */}
       {user ? (
-        <form onSubmit={handleSubmit} className="mb-20 border border-gray-200 ">
+        <form onSubmit={handleSubmit} className="mb-20 border border-gray-200 p-6">
           <textarea
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
@@ -95,22 +131,33 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
             className="w-full border-b border-gray-100 focus:border-black outline-none py-4 resize-none font-light text-sm transition-all duration-300 min-h-[80px]"
           />
           
-          <div className="flex justify-between items-center mt-4">
-            {/* Minimalist File Input */}
-            <label className="cursor-pointer group flex items-center gap-2">
-              <div className="w-5 h-5 border border-gray-200 flex items-center justify-center group-hover:border-black transition-colors">
-                <span className="text-xs font-light">{imageFile ? '✓' : '+'}</span>
-              </div>
-              <span className="text-[9px] uppercase tracking-widest text-gray-400 group-hover:text-black">
-                {imageFile ? imageFile.name.slice(0, 15) : 'Attach Image'}
-              </span>
-              <input 
-                type="file" 
-                accept="image/*" 
-                onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-                className="hidden" 
-              />
-            </label>
+          <div className="flex justify-between items-center mt-6">
+            <div className="flex items-center gap-4">
+              <label className="cursor-pointer group flex items-center gap-2">
+                <div className="w-5 h-5 border border-gray-200 flex items-center justify-center group-hover:border-black transition-colors">
+                  <span className="text-xs font-light">{imageFile ? '✓' : '+'}</span>
+                </div>
+                <span className="text-[9px] uppercase tracking-widest text-gray-400 group-hover:text-black">
+                  {imageFile ? 'Change Image' : 'Attach Image'}
+                </span>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleFileChange}
+                  className="hidden" 
+                />
+              </label>
+
+              {imageFile && (
+                <button 
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="text-[9px] uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors flex items-center gap-1"
+                >
+                  <span>✕</span> Remove
+                </button>
+              )}
+            </div>
 
             <button 
               type="submit"
@@ -120,6 +167,19 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
               {uploading ? 'Sending...' : 'Publish Response'}
             </button>
           </div>
+
+          {/* Local Preview Area */}
+          {previewUrl && (
+            <div className="mt-6 w-20 h-20 border border-gray-100 overflow-hidden relative group">
+              <img src={previewUrl} className="w-full h-full object-cover grayscale" alt="preview" />
+              <div 
+                className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity"
+                onClick={handleRemoveImage}
+              >
+                <span className="text-white text-[8px]">✕</span>
+              </div>
+            </div>
+          )}
         </form>
       ) : (
         <div className="mb-20 p-8 bg-gray-50 text-center">
@@ -133,16 +193,28 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
       <div className="space-y-16">
         {comments.map((comment) => (
           <div key={comment.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-6 h-6 bg-zinc-900 rounded-full flex items-center justify-center">
-                <span className="text-[8px] text-white uppercase">{comment.author_email?.[0]}</span>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-4">
+                <div className="w-6 h-6 bg-zinc-900 rounded-full flex items-center justify-center">
+                  <span className="text-[8px] text-white uppercase">{comment.author_email?.[0]}</span>
+                </div>
+                <span className="text-[10px] font-medium uppercase tracking-wider">
+                  {comment.author_email?.split('@')[0]}
+                </span>
+                <span className="text-[9px] text-gray-300 tracking-widest">
+                  {new Date(comment.created_at).toLocaleDateString()}
+                </span>
               </div>
-              <span className="text-[10px] font-medium uppercase tracking-wider">
-                {comment.author_email?.split('@')[0]}
-              </span>
-              <span className="text-[9px] text-gray-300 tracking-widest">
-                {new Date(comment.created_at).toLocaleDateString()}
-              </span>
+
+              {/* Delete Button for Owner */}
+              {user && user.id === comment.user_id && (
+                <button 
+                  onClick={() => handleDeleteComment(comment.id)}
+                  className="text-[9px] uppercase tracking-widest text-gray-300 hover:text-red-500 transition-colors"
+                >
+                  Delete
+                </button>
+              )}
             </div>
             
             <div className="pl-10">

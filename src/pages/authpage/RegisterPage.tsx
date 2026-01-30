@@ -14,7 +14,7 @@ export const RegisterPage = () => {
       <div className='max-w-md w-full bg-white-100 px-10 pb-5'>
 
         <h2 className='text-2xl font-bold text-gray-900 mb-1 text-center'>Create an Account</h2>
-        <p className='text-gray-500 mb-8 text-center text-sm'>Sign up to get started.</p>
+        <p className='text-gray-500 mb-8 text-center text-sm'>Sign up to get your pen ready.</p>
 
         <RegisterForm />
         <AuthPrompt text="Already have an account?" linkText="Login here" linkTo="/login" />
