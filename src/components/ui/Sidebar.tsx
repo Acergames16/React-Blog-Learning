@@ -21,10 +21,10 @@ export const Sidebar = ({ items }: SidebarProps) => {
   };
 
   return (
-    <aside className="w-64 h-screen bg-white border-r border-gray-100 flex flex-col fixed left-0 top-0 z-50">
-      {/* Logo Section - Scaled down for elegance */}
+    <aside className="w-64 h-screen bg-white border-r border-gray-200 flex flex-col fixed left-0 top-0 z-50">
+      {/* Logo Section - Darker for visibility */}
       <div className="p-10 mb-8">
-        <img src={logo} alt="Logo" className="w-8 h-8 object-contain grayscale" />
+        <img src={logo} alt="Logo" className="w-8 h-8 object-contain" />
       </div>
       
       {/* Navigation */}
@@ -38,21 +38,26 @@ export const Sidebar = ({ items }: SidebarProps) => {
               key={item.path}
               to={item.path}
               className={`group flex items-center gap-4 transition-all duration-300 ${
-                isActive ? 'text-black' : 'text-gray-300 hover:text-black'
+                isActive ? 'text-black' : 'text-zinc-500 hover:text-black'
               }`}
             >
-              {/* Thin stroke icons to match the feed lines */}
-              <Icon size={16} strokeWidth={1} className={`${isActive ? 'text-black' : 'text-gray-300 group-hover:text-black transition-colors'}`} />
+              {/* Increased strokeWidth to 1.5 for better visibility */}
+              <Icon 
+                size={18} 
+                strokeWidth={isActive ? 2 : 1.5} 
+                className={`${isActive ? 'text-black' : 'text-zinc-400 group-hover:text-black transition-colors'}`} 
+              />
               
-              <span className={`text-[10px] uppercase tracking-[0.3em] font-light transition-all ${
-                isActive ? 'opacity-100' : 'opacity-70 group-hover:opacity-100'
+              {/* Changed from light to medium and bumped gray from 300 to 500 */}
+              <span className={`text-[10px] uppercase tracking-[0.3em] font-medium transition-all ${
+                isActive ? 'opacity-100' : 'opacity-80 group-hover:opacity-100'
               }`}>
                 {item.name}
               </span>
 
-              {/* Sophisticated indicator: A horizontal line instead of a dot */}
+              {/* Thicker indicator line */}
               {isActive && (
-                <div className="ml-auto h-[1px] w-4 bg-black animate-in fade-in slide-in-from-left-2 duration-500" />
+                <div className="ml-auto h-[2px] w-4 bg-black animate-in fade-in slide-in-from-left-2 duration-500" />
               )}
             </Link>
           );
@@ -63,14 +68,14 @@ export const Sidebar = ({ items }: SidebarProps) => {
       <div className="px-8 py-10 space-y-6">
         <button
           onClick={handleLogout}
-          className="flex items-center gap-4 w-full text-gray-300 hover:text-black transition-all duration-300 group"
+          className="flex items-center gap-4 w-full text-zinc-500 hover:text-black transition-all duration-300 group"
         >
-          <LogOut size={16} strokeWidth={1} />
-          <span className="text-[10px] uppercase tracking-[0.3em] font-light">Logout</span>
+          <LogOut size={18} strokeWidth={1.5} />
+          <span className="text-[10px] uppercase tracking-[0.3em] font-medium">Logout</span>
         </button>
 
-        <div className="pt-8 border-t border-gray-50">
-          <p className="text-[9px] text-gray-200 uppercase tracking-[0.4em] leading-loose">
+        <div className="pt-8 border-t border-gray-100">
+          <p className="text-[9px] text-zinc-400 uppercase tracking-[0.4em] leading-loose font-medium">
             Archive <br />
             System v1.0
           </p>
