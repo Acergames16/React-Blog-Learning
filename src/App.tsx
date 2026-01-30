@@ -1,33 +1,46 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { AuthListener } from './feature/auth/AuthListener';
-import { ProtectedRoute } from './components/ProtectedRoute';
-import HomePage from './pages/HomePage';
-
-import RegisterPage from './pages/RegisterPage';
-import LoginPage from './pages/LoginPage';
-import MyBlogsPage from './pages/MyBlogsPage';
-import FeaturedPage from './pages/FeaturedPage';
-import PostViewPage from './pages/PostViewPage';
+import {Routes, Route, BrowserRouter as Router } from "react-router-dom"
+import { LoginPage } from "./pages/authpage/LoginPage"
+import { RegisterPage } from "./pages/authpage/RegisterPage"
+import LandingPage from "./pages/authpage/LandingPage"
+// import HomePage from "./pages/protectedpage/HomePage"
+import SettingsPage from "./pages/protectedpage/SettingsPage"
+import FeedPage from "./pages/protectedpage/FeedPage"
+import MyBlogListPage from "./pages/protectedpage/MyBlogListPage"
+import { MainLayout } from "./components/layout/MainLayout"
+import { ProtectedRoute } from "./features/auth/ProtectedRoute"
+import { AuthListener } from "./features/auth/AuthListener"
+import  PublishPage  from "./pages/protectedpage/PublishPage"
+import ViewBlogPage from "./pages/protectedpage/ViewBlogPage"
 
 function App() {
-  return (
-    <Router>
-      
-      <AuthListener />
-      
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path='/login' element={<LoginPage />} />
-       
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/featured" element={<ProtectedRoute><FeaturedPage /></ProtectedRoute>} />
-        <Route path="/my-blog" element={<ProtectedRoute><MyBlogsPage /></ProtectedRoute>} />
-        <Route path="/view/:id" element={<ProtectedRoute><PostViewPage /></ProtectedRoute>} />
 
-        {/* <Route path='*' element ={<div> 404 not found</div>} /> */}
-      </Routes>
-    </Router>
-  );
+
+  return (
+    <>
+      <Router>
+        <AuthListener />
+        <Routes>
+          <Route path="/" element={<LandingPage/>} />
+          <Route path="/login" element={<LoginPage/>}/> 
+          <Route path="/register" element={<RegisterPage/>}/> 
+
+          <Route element={<ProtectedRoute />}>
+          <Route element={<MainLayout/>}>
+            <Route path="/feed" element={<FeedPage/>}/>
+            <Route path="/publish" element={<PublishPage/>}/>
+            <Route path="/edit/:id" element={<PublishPage />} />
+            <Route path="/view/:id" element={<ViewBlogPage />} />
+            <Route path="/settings" element={<SettingsPage/>}/>
+            <Route path="/my-blogs" element={<MyBlogListPage/>}/>
+          </Route>
+          </Route>
+
+        </Routes>
+        
+      </Router>
+
+    </>
+  )
 }
 
-export default App;
+export default App
