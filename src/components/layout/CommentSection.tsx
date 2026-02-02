@@ -11,7 +11,10 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  // 1. Fetch Comments
+  // States for Editing existing comments
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState('');
+
   const fetchComments = useCallback(async () => {
     const { data, error } = await supabase
       .from('comments')
@@ -30,7 +33,6 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
     }
   }, [blogId, fetchComments]);
 
-  // 2. Image Handling Logic
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -44,7 +46,6 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
     setPreviewUrl(null);
   };
 
-  // 3. Delete Comment Logic
   const handleDeleteComment = async (commentId: string) => {
     const confirmDelete = window.confirm("Remove this response?");
     if (!confirmDelete) return;
@@ -54,11 +55,9 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
         .from('comments')
         .delete()
         .eq('id', commentId)
-        .eq('user_id', user?.id); // Server-side safety
+        .eq('user_id', user?.id);
 
       if (error) throw error;
-
-      // Optimistic update: remove from UI instantly
       setComments(prev => prev.filter(c => c.id !== commentId));
     } catch (err: any) {
       console.error("Delete Error:", err.message);
@@ -66,7 +65,40 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
     }
   };
 
-  // 4. Submit Comment Logic
+  // --- Start Edit Logic ---
+  const startEditing = (comment: any) => {
+    setEditingId(comment.id);
+    setEditContent(comment.content);
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditContent('');
+  };
+
+  const handleUpdateComment = async (commentId: string) => {
+    if (!editContent.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('comments')
+        .update({ content: editContent })
+        .eq('id', commentId)
+        .eq('user_id', user?.id);
+
+      if (error) throw error;
+
+      setComments(prev => prev.map(c => 
+        c.id === commentId ? { ...c, content: editContent } : c
+      ));
+      setEditingId(null);
+    } catch (err: any) {
+      console.error("Update Error:", err.message);
+      alert("Failed to update response.");
+    }
+  };
+  // --- End Edit Logic ---
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !newComment.trim()) return;
@@ -78,17 +110,14 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
         const fileName = `${Date.now()}.${fileExt}`;
-        
         const { error: uploadError } = await supabase.storage
           .from('comment-images')
           .upload(fileName, imageFile);
-        
         if (uploadError) throw uploadError;
 
         const { data: publicUrlData } = supabase.storage
           .from('comment-images')
           .getPublicUrl(fileName);
-          
         imageUrl = publicUrlData.publicUrl;
       }
 
@@ -102,11 +131,9 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
 
       if (insertError) throw insertError;
 
-      // Reset Form
       setNewComment('');
       handleRemoveImage();
       fetchComments(); 
-      
     } catch (err: any) {
       console.error("Comment Error:", err.message);
       alert("Failed to post comment.");
@@ -121,7 +148,6 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
         Responses ({comments.length})
       </h3>
 
-      {/* Form Area */}
       {user ? (
         <form onSubmit={handleSubmit} className="mb-20 border border-gray-200 p-6">
           <textarea
@@ -130,7 +156,6 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
             placeholder="Add to the story..."
             className="w-full border-b border-gray-100 focus:border-black outline-none py-4 resize-none font-light text-sm transition-all duration-300 min-h-[80px]"
           />
-          
           <div className="flex justify-between items-center mt-6">
             <div className="flex items-center gap-4">
               <label className="cursor-pointer group flex items-center gap-2">
@@ -140,56 +165,33 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
                 <span className="text-[9px] uppercase tracking-widest text-gray-400 group-hover:text-black">
                   {imageFile ? 'Change Image' : 'Attach Image'}
                 </span>
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={handleFileChange}
-                  className="hidden" 
-                />
+                <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
               </label>
-
               {imageFile && (
-                <button 
-                  type="button"
-                  onClick={handleRemoveImage}
-                  className="text-[9px] uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors flex items-center gap-1"
-                >
+                <button type="button" onClick={handleRemoveImage} className="text-[9px] uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors flex items-center gap-1">
                   <span>✕</span> Remove
                 </button>
               )}
             </div>
-
-            <button 
-              type="submit"
-              disabled={uploading || !newComment.trim()}
-              className="text-[10px] uppercase tracking-[0.2em] bg-black text-white px-8 py-3 hover:bg-zinc-800 disabled:bg-gray-100 disabled:text-gray-400 transition-all"
-            >
+            <button type="submit" disabled={uploading || !newComment.trim()} className="text-[10px] uppercase tracking-[0.2em] bg-black text-white px-8 py-3 hover:bg-zinc-800 disabled:bg-gray-100 disabled:text-gray-400 transition-all">
               {uploading ? 'Sending...' : 'Publish Response'}
             </button>
           </div>
-
-          {/* Local Preview Area */}
           {previewUrl && (
             <div className="mt-6 w-20 h-20 border border-gray-100 overflow-hidden relative group">
               <img src={previewUrl} className="w-full h-full object-cover grayscale" alt="preview" />
-              <div 
-                className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity"
-                onClick={handleRemoveImage}
-              >
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity" onClick={handleRemoveImage}>
                 <span className="text-white text-[8px]">✕</span>
               </div>
             </div>
           )}
         </form>
       ) : (
-        <div className="mb-20 p-8 bg-gray-50 text-center">
-          <p className="text-[10px] uppercase tracking-widest text-gray-400">
-            Please sign in to join the conversation
-          </p>
+        <div className="mb-20 p-8 bg-gray-50 text-center text-[10px] uppercase tracking-widest text-gray-400">
+          Please sign in to join the conversation
         </div>
       )}
 
-      {/* Comments List */}
       <div className="space-y-16">
         {comments.map((comment) => (
           <div key={comment.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -206,29 +208,46 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
                 </span>
               </div>
 
-              {/* Delete Button for Owner */}
               {user && user.id === comment.user_id && (
-                <button 
-                  onClick={() => handleDeleteComment(comment.id)}
-                  className="text-[9px] uppercase tracking-widest text-gray-300 hover:text-red-500 transition-colors"
-                >
-                  Delete
-                </button>
+                <div className="flex gap-4">
+                  {editingId !== comment.id && (
+                    <button onClick={() => startEditing(comment)} className="text-[9px] uppercase tracking-widest text-gray-300 hover:text-black transition-colors">
+                      Edit
+                    </button>
+                  )}
+                  <button onClick={() => handleDeleteComment(comment.id)} className="text-[9px] uppercase tracking-widest text-gray-300 hover:text-red-500 transition-colors">
+                    Delete
+                  </button>
+                </div>
               )}
             </div>
             
             <div className="pl-10">
-              <p className="text-sm text-zinc-600 font-light leading-relaxed mb-6 whitespace-pre-line">
-                {comment.content}
-              </p>
+              {editingId === comment.id ? (
+                <div className="space-y-4">
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    className="w-full border border-gray-200 p-4 text-sm font-light focus:outline-none focus:border-black min-h-[100px] resize-none"
+                  />
+                  <div className="flex gap-4">
+                    <button onClick={() => handleUpdateComment(comment.id)} className="text-[9px] uppercase tracking-widest bg-black text-white px-4 py-2 hover:bg-zinc-800">
+                      Save Changes
+                    </button>
+                    <button onClick={cancelEditing} className="text-[9px] uppercase tracking-widest text-gray-400 hover:text-black">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-zinc-600 font-light leading-relaxed mb-6 whitespace-pre-line">
+                  {comment.content}
+                </p>
+              )}
               
               {comment.image_url && (
                 <div className="max-w-sm overflow-hidden border border-gray-50">
-                   <img 
-                    src={comment.image_url} 
-                    className="w-full h-auto grayscale hover:grayscale-0 transition-all duration-700" 
-                    alt="attachment" 
-                  />
+                   <img src={comment.image_url} className="w-full h-auto grayscale hover:grayscale-0 transition-all duration-700" alt="attachment" />
                 </div>
               )}
             </div>
