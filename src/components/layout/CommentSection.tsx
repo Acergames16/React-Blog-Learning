@@ -5,16 +5,23 @@ import type { RootState } from '../../app/store';
 
 const CommentsSection = ({ blogId }: { blogId: string }) => {
   const { user } = useSelector((state: RootState) => state.auth);
+  
+  // List State
   const [comments, setComments] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  // New Comment State
   const [newComment, setNewComment] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
 
-  // States for Editing existing comments
+  // Editing State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editPreviewUrl, setEditPreviewUrl] = useState<string | null>(null);
 
+  // 1. Fetch Comments
   const fetchComments = useCallback(async () => {
     const { data, error } = await supabase
       .from('comments')
@@ -28,11 +35,10 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
   }, [blogId]);
 
   useEffect(() => {
-    if (blogId) {
-      fetchComments();
-    }
+    if (blogId) fetchComments();
   }, [blogId, fetchComments]);
 
+  // 2. Logic: Create New Comment
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -46,79 +52,22 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
     setPreviewUrl(null);
   };
 
-  const handleDeleteComment = async (commentId: string) => {
-    const confirmDelete = window.confirm("Remove this response?");
-    if (!confirmDelete) return;
-
-    try {
-      const { error } = await supabase
-        .from('comments')
-        .delete()
-        .eq('id', commentId)
-        .eq('user_id', user?.id);
-
-      if (error) throw error;
-      setComments(prev => prev.filter(c => c.id !== commentId));
-    } catch (err: any) {
-      console.error("Delete Error:", err.message);
-      alert("Could not delete comment.");
-    }
-  };
-
-  // --- Start Edit Logic ---
-  const startEditing = (comment: any) => {
-    setEditingId(comment.id);
-    setEditContent(comment.content);
-  };
-
-  const cancelEditing = () => {
-    setEditingId(null);
-    setEditContent('');
-  };
-
-  const handleUpdateComment = async (commentId: string) => {
-    if (!editContent.trim()) return;
-
-    try {
-      const { error } = await supabase
-        .from('comments')
-        .update({ content: editContent })
-        .eq('id', commentId)
-        .eq('user_id', user?.id);
-
-      if (error) throw error;
-
-      setComments(prev => prev.map(c => 
-        c.id === commentId ? { ...c, content: editContent } : c
-      ));
-      setEditingId(null);
-    } catch (err: any) {
-      console.error("Update Error:", err.message);
-      alert("Failed to update response.");
-    }
-  };
-  // --- End Edit Logic ---
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !newComment.trim()) return;
     setUploading(true);
 
-    let imageUrl = null;
-
     try {
+      let imageUrl = null;
       if (imageFile) {
-        const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${Date.now()}.${fileExt}`;
+        const fileName = `${Date.now()}_${imageFile.name}`;
         const { error: uploadError } = await supabase.storage
           .from('comment-images')
           .upload(fileName, imageFile);
         if (uploadError) throw uploadError;
 
-        const { data: publicUrlData } = supabase.storage
-          .from('comment-images')
-          .getPublicUrl(fileName);
-        imageUrl = publicUrlData.publicUrl;
+        const { data } = supabase.storage.from('comment-images').getPublicUrl(fileName);
+        imageUrl = data.publicUrl;
       }
 
       const { error: insertError } = await supabase.from('comments').insert({
@@ -135,10 +84,79 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
       handleRemoveImage();
       fetchComments(); 
     } catch (err: any) {
-      console.error("Comment Error:", err.message);
       alert("Failed to post comment.");
     } finally {
       setUploading(false);
+    }
+  };
+
+  // 3. Logic: Update Comment
+  const startEditing = (comment: any) => {
+    setEditingId(comment.id);
+    setEditContent(comment.content);
+    setEditPreviewUrl(comment.image_url);
+    setEditImageFile(null);
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditContent('');
+    setEditPreviewUrl(null);
+    setEditImageFile(null);
+  };
+
+  const handleUpdateComment = async (commentId: string) => {
+    if (!editContent.trim()) return;
+    setUploading(true);
+
+    try {
+      let finalImageUrl = editPreviewUrl;
+
+      if (editImageFile) {
+        const fileName = `${Date.now()}_${editImageFile.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from('comment-images')
+          .upload(fileName, editImageFile);
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from('comment-images').getPublicUrl(fileName);
+        finalImageUrl = data.publicUrl;
+      }
+
+      const { error } = await supabase
+        .from('comments')
+        .update({ content: editContent, image_url: finalImageUrl })
+        .eq('id', commentId)
+        .eq('user_id', user?.id);
+
+      if (error) throw error;
+
+      setComments(prev => prev.map(c => 
+        c.id === commentId ? { ...c, content: editContent, image_url: finalImageUrl } : c
+      ));
+      cancelEditing();
+    } catch (err: any) {
+      alert("Failed to update response.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // 4. Logic: Delete Comment
+  const handleDeleteComment = async (commentId: string) => {
+    if (!window.confirm("Remove this response?")) return;
+
+    try {
+      const { error } = await supabase
+        .from('comments')
+        .delete()
+        .eq('id', commentId)
+        .eq('user_id', user?.id);
+
+      if (error) throw error;
+      setComments(prev => prev.filter(c => c.id !== commentId));
+    } catch (err: any) {
+      alert("Could not delete comment.");
     }
   };
 
@@ -148,6 +166,7 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
         Responses ({comments.length})
       </h3>
 
+      {/* NEW COMMENT FORM */}
       {user ? (
         <form onSubmit={handleSubmit} className="mb-20 border border-gray-200 p-6">
           <textarea
@@ -168,12 +187,10 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
                 <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
               </label>
               {imageFile && (
-                <button type="button" onClick={handleRemoveImage} className="text-[9px] uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors flex items-center gap-1">
-                  <span>✕</span> Remove
-                </button>
+                <button type="button" onClick={handleRemoveImage} className="text-[9px] uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors">✕ Remove</button>
               )}
             </div>
-            <button type="submit" disabled={uploading || !newComment.trim()} className="text-[10px] uppercase tracking-[0.2em] bg-black text-white px-8 py-3 hover:bg-zinc-800 disabled:bg-gray-100 disabled:text-gray-400 transition-all">
+            <button type="submit" disabled={uploading || !newComment.trim()} className="text-[10px] uppercase tracking-[0.2em] bg-black text-white px-8 py-3 hover:bg-zinc-800 disabled:bg-gray-100 transition-all">
               {uploading ? 'Sending...' : 'Publish Response'}
             </button>
           </div>
@@ -187,11 +204,10 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
           )}
         </form>
       ) : (
-        <div className="mb-20 p-8 bg-gray-50 text-center text-[10px] uppercase tracking-widest text-gray-400">
-          Please sign in to join the conversation
-        </div>
+        <div className="mb-20 p-8 bg-gray-50 text-center text-[10px] uppercase tracking-widest text-gray-400">Please sign in to join the conversation</div>
       )}
 
+      {/* COMMENTS LIST */}
       <div className="space-y-16">
         {comments.map((comment) => (
           <div key={comment.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -200,24 +216,15 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
                 <div className="w-6 h-6 bg-zinc-900 rounded-full flex items-center justify-center">
                   <span className="text-[8px] text-white uppercase">{comment.author_email?.[0]}</span>
                 </div>
-                <span className="text-[10px] font-medium uppercase tracking-wider">
-                  {comment.author_email?.split('@')[0]}
-                </span>
-                <span className="text-[9px] text-gray-300 tracking-widest">
-                  {new Date(comment.created_at).toLocaleDateString()}
-                </span>
+                <span className="text-[10px] font-medium uppercase tracking-wider">{comment.author_email?.split('@')[0]}</span>
+                <span className="text-[9px] text-gray-300 tracking-widest">{new Date(comment.created_at).toLocaleDateString()}</span>
               </div>
-
               {user && user.id === comment.user_id && (
                 <div className="flex gap-4">
                   {editingId !== comment.id && (
-                    <button onClick={() => startEditing(comment)} className="text-[9px] uppercase tracking-widest text-gray-300 hover:text-black transition-colors">
-                      Edit
-                    </button>
+                    <button onClick={() => startEditing(comment)} className="text-[9px] uppercase tracking-widest text-gray-300 hover:text-black transition-colors">Edit</button>
                   )}
-                  <button onClick={() => handleDeleteComment(comment.id)} className="text-[9px] uppercase tracking-widest text-gray-300 hover:text-red-500 transition-colors">
-                    Delete
-                  </button>
+                  <button onClick={() => handleDeleteComment(comment.id)} className="text-[9px] uppercase tracking-widest text-gray-300 hover:text-red-500 transition-colors">Delete</button>
                 </div>
               )}
             </div>
@@ -230,25 +237,40 @@ const CommentsSection = ({ blogId }: { blogId: string }) => {
                     onChange={(e) => setEditContent(e.target.value)}
                     className="w-full border border-gray-200 p-4 text-sm font-light focus:outline-none focus:border-black min-h-[100px] resize-none"
                   />
-                  <div className="flex gap-4">
-                    <button onClick={() => handleUpdateComment(comment.id)} className="text-[9px] uppercase tracking-widest bg-black text-white px-4 py-2 hover:bg-zinc-800">
-                      Save Changes
+                  <div className="flex items-center gap-4">
+                    {editPreviewUrl && (
+                      <div className="w-16 h-16 border border-gray-100 overflow-hidden relative group">
+                        <img src={editPreviewUrl} className="w-full h-full object-cover grayscale" alt="" />
+                        <button onClick={() => { setEditPreviewUrl(null); setEditImageFile(null); }} className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-[8px] opacity-0 group-hover:opacity-100 transition-opacity">REMOVE</button>
+                      </div>
+                    )}
+                    <label className="cursor-pointer text-[9px] uppercase tracking-widest border border-gray-200 px-3 py-2 hover:border-black transition-colors">
+                      {editPreviewUrl ? 'Replace Image' : 'Add Image'}
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setEditImageFile(file);
+                          setEditPreviewUrl(URL.createObjectURL(file));
+                        }
+                      }} />
+                    </label>
+                  </div>
+                  <div className="flex gap-4 pt-2">
+                    <button onClick={() => handleUpdateComment(comment.id)} disabled={uploading} className="text-[9px] uppercase tracking-widest bg-black text-white px-4 py-2 hover:bg-zinc-800 disabled:bg-gray-400">
+                      {uploading ? 'Updating...' : 'Save Changes'}
                     </button>
-                    <button onClick={cancelEditing} className="text-[9px] uppercase tracking-widest text-gray-400 hover:text-black">
-                      Cancel
-                    </button>
+                    <button onClick={cancelEditing} className="text-[9px] uppercase tracking-widest text-gray-400 hover:text-black">Cancel</button>
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-zinc-600 font-light leading-relaxed mb-6 whitespace-pre-line">
-                  {comment.content}
-                </p>
-              )}
-              
-              {comment.image_url && (
-                <div className="max-w-sm overflow-hidden border border-gray-50">
-                   <img src={comment.image_url} className="w-full h-auto grayscale hover:grayscale-0 transition-all duration-700" alt="attachment" />
-                </div>
+                <>
+                  <p className="text-sm text-zinc-600 font-light leading-relaxed mb-6 whitespace-pre-line">{comment.content}</p>
+                  {comment.image_url && (
+                    <div className="max-w-sm overflow-hidden border border-gray-50">
+                      <img src={comment.image_url} className="w-full h-auto grayscale hover:grayscale-0 transition-all duration-700" alt="attachment" />
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
