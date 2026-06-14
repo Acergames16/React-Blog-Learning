@@ -18,13 +18,13 @@ function App() {
   return (
     <>
       <Router>
-        <AuthListener />
+        
         <Routes>
           <Route path="/" element={<LandingPage/>} />
           <Route path="/login" element={<LoginPage/>}/> 
           <Route path="/register" element={<RegisterPage/>}/> 
 
-          <Route element={<ProtectedRoute />}>
+          
           <Route element={<MainLayout/>}>
             <Route path="/feed" element={<FeedPage/>}/>
             <Route path="/publish" element={<PublishPage/>}/>
@@ -33,7 +33,7 @@ function App() {
             <Route path="/settings" element={<SettingsPage/>}/>
             <Route path="/my-blogs" element={<MyBlogListPage/>}/>
           </Route>
-          </Route>
+          
 
         </Routes>
         
